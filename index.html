@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Full polarization calibration and sparse imaging for RI</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <meta name="viewport" content="width=device-width">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>Full polarization calibration and sparse imaging for RI</h1>
+        <p>MATLAB source code</p>
+<!--        <p class="view"><a href="http://github.com/basp-group/stokes-imaging">View the Project on GitHub <small>basp-group/stokes-imaging</small></a></p>-->
+<!--        <ul>-->
+<!--          <li><a href="https://github.com/basp-group/stokes-imaging/zipball/master">Download <strong>ZIP File</strong></a></li>-->
+<!--          <li><a href="https://github.com/basp-group/stokes-imaging/tarball/master">Download <strong>TAR Ball</strong></a></li>-->
+<!--          <li><a href="http://github.com/basp-group/stokes-imaging">Fork On <strong>GitHub</strong></a></li>-->
+        </ul>
+      </header>
+      <section>
+          <h1>Polca SARA - Self direction-dependent calibration for full polarization radio-interferometric sparse imaging</h1>
+
+        
+        <h2>Introduction</h2>
+
+<p>New generation of radio interferometers are envisaged to produce high quality, high dynamic range Stokes images of the observed sky from the corresponding under-sampled Fourier
+    domain measurements. In practice, these measurements are contaminated by the instrumental and atmospheric effects that are well represented by Jones matrices, and are most often varying with observation direction and time. These effects, usually unknown, act as a limiting factor in achieving the required imaging performance and thus, their calibration is crucial. To address this issue, we develop a global algorithm, named Polca SARA, aiming to perform full polarization, direction-dependent calibration and sparse imaging by employing a non-convex optimization technique. In contrast with the existing approaches, the proposed method offers global convergence guarantees and flexibility to incorporate sophisticated priors to regularize the imaging as well as calibration problem. Thus, we adapt a polarimetric imaging specific
+        method, enforcing the physical polarization constraint along with a sparsity prior for the sought images. We perform extensive simulation studies of the proposed algorithm. While indicating the superior performance of polarization constraint based imaging, the obtained
+results also highlight the importance of calibrating for direction-dependent effects as well as for off-diagonal terms (denoting polarization leakage) in the associated Jones matrices,without inclusion of which the imaging quality deteriorates.
+        
+        </p>
+
+<p>The code made available here represents MATLAB implementation of the proposed algorithm.</p>
+
+<h3>Authors</h3>
+<ul>
+<li>Ms. Jasleen Birdi</li>
+<li>Dr. Audrey Repetti</li>
+<li>Prof. Yves Wiaux</li>
+</ul>
+        
+<h4>Article</h4>
+<p>J. Birdi, A. Repetti, and Y. Wiaux - Polca SARA - Self direction-dependent calibration for full
+polarization radio-interferometric sparse imaging, submitted for publication, 2019.</p>
+        
+
+      <footer>
+        <p>This project is maintained by <a href="http://github.com/basp-group”>gasp-group</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+  </body>
+</html>
