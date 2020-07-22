@@ -1,0 +1,188 @@
+function [Y, V, W, Omega, u_ab, v_ab, y, param_im, sp_scale, U, D, N, K, na,sigma_noise] = generate_synth_data(S, J, P, T, F, dl, cov_type, A, A_center,im_choice,stokes_P,param_im, off_diag, A_off,L_ch)
+% Generate synthetic RI data with smooth spatially and temporally varying 
+% DDE kernels.
+%-------------------------------------------------------------------------%
+%%
+%
+% Output:
+% < Y     : data with redundancy [na, na, T, 4]
+%           (Nan on the diag., y_ab = conj(y_ab) for a > b)
+% < V     : spatial NUFFT gridding kernels with redundancy (similar to Y) [J2, na, na, T]
+% < W     : spatial NUFFT gridding kernels
+% < Omega : u-v components with redundancy (similar to Y) ,
+%           Omega(:, :, 1, t) -> v_ab(t)
+%           Omega(:, :, 2, t) -> u_ab(t)
+% < u_ab  : u components [M, T]
+% < v_ab  : v components [M, T]
+% < y     : data vector [M,T,1]
+% < param_im     : ground truth image
+% < sp_scale : NUFFT scaling coefficients
+% < U     : DDE kernels in the spatial and temporal frequency domain [S2, na, P, 4]
+% < D     : DDE kernels in the spatial frequency domain (4 cells: [S2, na, T])
+% < N     : image size
+% < K     : size of the spatial Fourier space
+% < na    : number of antennas
+% < sigma_noise   : standard deviation on the noise
+%-------------------------------------------------------------------------%
+%% 
+%-------------------------------------------------------------------------%
+
+% Load image
+if strcmp(im_choice,'cyg_a')
+    im_cygnus_A;
+    
+elseif strcmp(im_choice,'hydra5')
+    hydra_ch = 5;
+    im_hydra;
+       
+else
+    im{1} = fitsread('cyg_I.fits');
+    im{2} = fitsread('cyg_Q.fits');
+    im{3} = fitsread('cyg_U.fits');
+end
+
+param_im.im_true = im;
+[Ny, Nx] = size(im{1});
+N = [Ny,Nx];
+K = 2*N;
+param_im.Ni = [Ny,Nx];
+
+
+%% Convert Stokes matrix to Brightness matrix
+St = [param_im.im_true{1}(:), param_im.im_true{2}(:), param_im.im_true{3}(:)];  % Stokes matrix
+
+if L_ch == 1
+    % Considering linear feed
+    L = [1,0,0,1;1,0,0,-1;0,1,1,0]; % Conversion matrix
+else
+    % Considering circular feed
+    L = [1,0,0,1;0,1,1,0;0,1i,-1i,0];
+end
+
+B1 = St*L; % Brightness matrix
+
+Lt = 0.5*L'; %Adjoint conversion matrix
+
+for i =1:4
+    B{i} = reshape(B1(:,i), param_im.Ni(2), param_im.Ni(1));
+end
+
+param_im.bright_im = B;
+ 
+%-------------------------------------------------------------------------%
+
+% Parameters
+S2 = S*S;
+J2 = J*J;
+
+% U-V coverage & antenna positions
+[u_ab, v_ab, na] = generate_uv_coverage2(T, dl, cov_type);
+M = na*(na-1)/2;
+
+% Generate ground truth DDEs
+cs = floor(S2/2) + 1; % center of the spatial support
+p = floor(P/2) + 1;
+
+vec_z = zeros(S2,na, P, 1);
+vec_z(:,:,:,:) = A_off;
+vec_z(cs,:,:,:) = A;
+
+
+ U = ((randn(S2, na, P, 4) + 1i*randn(S2, na, P,4))/P)*sqrt(F); % DDEs for each antenna has 4 values: 2 x 2 matrix 4 columns: 11,21,12,22
+
+U(:,:,:,1) = A_center*U(:,:,:,1);
+U(:,:,:,2) = vec_z.*U(:,:,:,2);
+
+%%%%%%%%%%%%%%%%%%%%%%
+% To allow some perturbation on U4 and U3
+vec_z(cs,:,:,:) = A_off; %5e-4;
+U(:,:,:,4) = U(:,:,:,1) + U(:,:,:,4)*A_off; %5e-4;
+U(:,:,:,3) = U(:,:,:,2) + U(:,:,:,3).*vec_z;
+%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+U(:,:,p,:) = 0;
+U(cs,:,p,1) = sqrt(F); 
+U(cs,:,p,4) = sqrt(F); 
+U(cs,:,p,2) = sqrt(F)*off_diag;
+U(cs,:,p,3) = sqrt(F)*off_diag;
+
+
+D = computeD_reg(U, F, [], [], T); % Cell of size 4 (each for a correlator)
+
+
+% Spatial gridding coefficients and associated frequencies
+V = zeros(J2, na, na, T);
+W = cell(T, 1);
+Omega = zeros(na, na, 2, T);
+indices = getIndicesLow(na); % indices for the lower part of Y
+
+
+parfor t = 1:T              
+    % spatial gridding coefficients
+    st = compute_interp_coeffs([v_ab(:, t), u_ab(:, t)], N, [J, J], K, N/2); % [Ny/2, Nx/2], N = K/2 [Mt, J2] 
+    W{t} = st.uu; % [J2, M] 
+    v_temp = flipud(conj(st.uu));
+    Z = zeros(na, na, J2);
+    w_temp = zeros(na);
+    for j = 1:J2
+        w_temp(indices) = st.uu(j,:); % explained by the symmetry of the coefficients
+        w_temp = w_temp.';
+        w_temp(indices) = v_temp(j,:);
+        Z(:, :, j) = w_temp;
+    end
+    V(:, :, :, t) = permute(Z, [3, 1, 2]); % [J2, na, na]
+end
+st = compute_interp_coeffs([v_ab(:, 1), u_ab(:, 1)], N, [J, J], K, N/2);
+sp_scale = st.sn;
+
+% Created duplicate frequency matrices [na, na, 2, T]
+for t = 1:T
+    % frequencies
+    w_temp = NaN(na);
+    w_temp(indices) = v_ab(:, t);
+    w_temp = w_temp.';
+    w_temp(indices) = -v_ab(:, t);
+    Omega(:,:,1,t) = w_temp; % -w_temp + w_temp.';
+    w_temp(indices) = u_ab(:, t);
+    w_temp = w_temp.';
+    w_temp(indices) = -u_ab(:, t);
+    Omega(:,:,2,t) = w_temp; %-w_temp + w_temp.'; % [na, na, 2] for each t
+end
+    
+% Data generation
+y = zeros(M, T, 4); % 4 correlators
+Y = zeros(na, na, T, 4);
+sigma_noise = 2e-7*ones(T,1);
+
+for t=1:T
+    y0 = zeros(4*M,1);
+    
+    for i =1:4
+        Dt{i} = D{i}(:,:,t);
+    end
+    G = createGnufft_T2(Dt, Dt, [v_ab(:, t), u_ab(:, t)], K, S, J, W{t});
+    for i =1:4
+        A_{i} = @(x) G{i}*so_fft2(x, K, sp_scale);
+        y0_{i} = A_{i}(B{i});
+        
+        y0 = y0_{i} + y0;
+    end
+    
+    for i = 1:4
+        y_(:,t,i) = y0(i:4:end);
+        noise = (randn(size(y_(:,t,i))) + 1i*randn(size(y_(:,t,i))))*sigma_noise(t)/sqrt(2);
+        
+        y(:,t,i) = y_(:,t,i) + noise;
+        % Create duplicate data Y [na, na]
+        Y(:,:,t,i) = createY(y(:,t,i), na);
+    end
+end
+
+% Replace invalid entries by NaN
+Y(Y == 0) = NaN;
+V(V == 0) = NaN;
+
+end
+
